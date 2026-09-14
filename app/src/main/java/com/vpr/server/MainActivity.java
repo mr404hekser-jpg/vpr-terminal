@@ -11,6 +11,7 @@ import android.os.Looper;
 import android.provider.OpenableColumns;
 import android.view.*;
 import android.widget.*;
+import android.widget.ImageButton;
 import java.io.*;
 import java.util.*;
 
@@ -53,7 +54,7 @@ public class MainActivity extends Activity {
         btnSend           = findViewById(R.id.btnSend);
         btnUpload         = findViewById(R.id.btnUpload);
         btnNewSession     = findViewById(R.id.btnNewSession);
-        btnClearSession   = findViewById(R.id.btnClearSession);
+        btnClearSession = findViewById(R.id.btnClearSession);
 
         // Init storage 1TB folder structure
         initStorage();

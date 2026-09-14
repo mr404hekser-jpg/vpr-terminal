@@ -1,56 +1,62 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center"
     android:background="#000000">
 
-    <!-- Logo Naga Style Kali -->
-    <TextView
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:fontFamily="monospace"
-        android:textColor="#2196F3"
-        android:textSize="8sp"
+        android:orientation="vertical"
         android:gravity="center"
-        android:layout_marginBottom="12dp"
-        android:text="                 .                    \n              .:.                   \n           .:::::.                 \n         .::::::::.               \n       .:::::::::::.              \n      .::::::::::::::.            \n     .:::::::::::::::::.          \n    .::::::/  \\:::::::::.         \n   .::::::/ () \\::::::::.        \n   .::::::|  ^  |::::::::.       \n   .:::::::\\___/:::::::::.       \n    .:::::::::::::::::::::        \n     .:::::::::::::::::::         \n      .:::::::::/\\::::::          \n       .:::::::/ \\:::::           \n        .:::::/ V \\::::           \n         .:::/ P R \\:::          \n          .:/ SERVER \\::         \n           /___________\\         "/>
+        android:paddingTop="16dp"
+        android:paddingBottom="16dp">
 
-    <!-- VPR Text -->
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="VPR SERVER"
-        android:textColor="#2196F3"
-        android:textSize="32sp"
-        android:textStyle="bold"
-        android:fontFamily="monospace"
-        android:letterSpacing="0.4"
-        android:layout_marginBottom="4dp"/>
+        <!-- Kali Linux ASCII Art -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="monospace"
+            android:textColor="#2196F3"
+            android:textSize="5sp"
+            android:gravity="center"
+            android:layout_marginBottom="12dp"
+            android:text="          000011111111111111111110\n                                 011111111111\n                                            1111111\n                                                   111\n                       011111111111111111111111111101\n          011111100                                000\n                                       0111111111111 1\n                                 111110               11\n                           01110                       1111111110\n                       111                            111111111111111100\n                   11                               1111             1111110\n               11                                 1111                    11111\n            1                                    111                          11111\n                                                 110                           11111\n                                                011                               111\n                                                111                                  110\n                                                 111\n                                                 1111\n                                                  1111\n                                                    11111\n                                                      1111111111111111111\n                                                                    0111111111111\n                                                                           0111  11110\n                                                                               11     110\n                                                                                 11      11\n                                                                                   11      10\n                                                                                     10     11\n                                                                                      11      1\n                                                                                       11      0\n                                                                                        11\n                                                                                         1\n                                                                                          1\n                                                                                          10\n                                                                                           0"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Virtual Persistent Runtime"
-        android:textColor="#1565C0"
-        android:textSize="13sp"
-        android:fontFamily="monospace"
-        android:layout_marginBottom="8dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="VPR SERVER"
+            android:textColor="#2196F3"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:fontFamily="monospace"
+            android:letterSpacing="0.4"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="4dp"/>
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="The quieter you become, the more you are able to hear"
-        android:textColor="#0D47A1"
-        android:textSize="10sp"
-        android:fontFamily="monospace"
-        android:fontStyle="italic"
-        android:layout_marginBottom="24dp"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Virtual Persistent Runtime"
+            android:textColor="#1565C0"
+            android:textSize="12sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="6dp"/>
 
-    <ProgressBar
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:indeterminateTint="#2196F3"/>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="The quieter you become, the more you are able to hear"
+            android:textColor="#0D47A1"
+            android:textSize="9sp"
+            android:fontFamily="monospace"
+            android:layout_marginBottom="20dp"/>
 
-</LinearLayout>
+        <ProgressBar
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:indeterminateTint="#2196F3"/>
+
+    </LinearLayout>
+</ScrollView>
