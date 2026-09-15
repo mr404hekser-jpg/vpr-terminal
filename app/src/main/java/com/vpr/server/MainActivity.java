@@ -17,11 +17,9 @@ import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
@@ -39,6 +37,7 @@ public class MainActivity extends Activity {
     private int sessionCount = 0;
     private SharedPreferences prefs;
     private Handler mainHandler;
+    private StorageManager storage;
     private static final int FILE_PICK = 100;
 
     private static final String ASCII =
@@ -50,13 +49,13 @@ public class MainActivity extends Activity {
         "    ╚═══╝  ╚═╝     ╚═╝  ╚═╝\n" +
         "        S E R V E R  v2.1\n\n" +
         "  Welcome to VPR Server\n" +
-        "  Storage : 1TB | Sessions : Unlimited\n" +
+        "  Ketik 'storage' untuk info penyimpanan\n" +
+        "  Ketik 'help' untuk daftar perintah\n" +
         "  ─────────────────────────────────\n\n";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         try {
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE);
             getWindow().setFlags(
@@ -67,17 +66,17 @@ public class MainActivity extends Activity {
 
             mainHandler = new Handler(Looper.getMainLooper());
             prefs = getSharedPreferences("vpr_sessions", MODE_PRIVATE);
+            storage = new StorageManager(this);
 
-            sessionTabBar   = findViewById(R.id.sessionTabBar);
+            sessionTabBar     = findViewById(R.id.sessionTabBar);
             terminalContainer = findViewById(R.id.terminalContainer);
-            cmdInput        = findViewById(R.id.cmdInput);
-            btnSend         = findViewById(R.id.btnSend);
-            btnUpload       = findViewById(R.id.btnUpload);
-            btnNewSession   = findViewById(R.id.btnNewSession);
-            btnClearSession = findViewById(R.id.btnClearSession);
+            cmdInput          = findViewById(R.id.cmdInput);
+            btnSend           = findViewById(R.id.btnSend);
+            btnUpload         = findViewById(R.id.btnUpload);
+            btnNewSession     = findViewById(R.id.btnNewSession);
+            btnClearSession   = findViewById(R.id.btnClearSession);
 
-            initStorage();
-            startVPRService();
+            startService(new Intent(this, VPRService.class));
 
             int saved = prefs.getInt("session_count", 0);
             if (saved == 0) {
@@ -91,35 +90,9 @@ public class MainActivity extends Activity {
             btnUpload.setOnClickListener(v -> pickFile());
             btnNewSession.setOnClickListener(v -> createSession());
             btnClearSession.setOnClickListener(v -> confirmClear());
+            cmdInput.setOnEditorActionListener((v, a, e) -> { runCommand(); return true; });
 
-            cmdInput.setOnEditorActionListener((v, a, e) -> {
-                runCommand();
-                return true;
-            });
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void startVPRService() {
-        try {
-            Intent svc = new Intent(this, VPRService.class);
-            startService(svc);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void initStorage() {
-        String[] dirs = {
-            "/sdcard/vpr", "/sdcard/vpr/bots", "/sdcard/vpr/scripts",
-            "/sdcard/vpr/apps", "/sdcard/vpr/logs", "/sdcard/vpr/storage",
-            "/sdcard/vpr/data", "/sdcard/vpr/backup"
-        };
-        for (String d : dirs) {
-            try { new File(d).mkdirs(); } catch (Exception ignored) {}
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void createSession() {
@@ -130,11 +103,10 @@ public class MainActivity extends Activity {
             addTab(sessions.size() - 1);
             switchSession(sessions.size() - 1);
             sv.print(ASCII);
-            sv.print("  Session " + sessionCount + " siap.\n\n");
+            // Tampilkan info storage real saat buka session
+            sv.print(storage.getStorageInfo() + "\n");
             prefs.edit().putInt("session_count", sessionCount).apply();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void restoreSession(int id) {
@@ -143,9 +115,7 @@ public class MainActivity extends Activity {
             SessionView sv = new SessionView(this, id, prefs);
             sessions.add(sv);
             addTab(sessions.size() - 1);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void addTab(int idx) {
@@ -175,21 +145,80 @@ public class MainActivity extends Activity {
                 if (v instanceof Button)
                     ((Button) v).setBackgroundColor(i == idx ? 0xFF0D3A5C : 0xFF1A1A1A);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private void runCommand() {
         try {
             String cmd = cmdInput.getText().toString().trim();
-            if (!cmd.isEmpty()) {
-                exec(cmd);
-                cmdInput.setText("");
+            if (cmd.isEmpty()) return;
+            cmdInput.setText("");
+
+            // Built-in commands
+            switch (cmd.toLowerCase()) {
+                case "storage":
+                case "df":
+                    sessions.get(activeSession).print("\n" + storage.getStorageInfo() + "\n");
+                    return;
+                case "help":
+                    sessions.get(activeSession).print(
+                        "\n[ VPR Commands ]\n" +
+                        "─────────────────\n" +
+                        "storage / df     — Info penyimpanan real\n" +
+                        "ls [path]        — List file\n" +
+                        "ls bots          — List file di bots/\n" +
+                        "ls scripts       — List file di scripts/\n" +
+                        "clear            — Bersihkan terminal\n" +
+                        "ps               — Lihat proses aktif\n" +
+                        "[file.py]        — Jalankan Python\n" +
+                        "[file.sh]        — Jalankan Shell\n" +
+                        "[file.js]        — Jalankan Node.js\n" +
+                        "─────────────────\n\n"
+                    );
+                    return;
+                case "clear":
+                    sessions.get(activeSession).clear();
+                    sessions.get(activeSession).print(ASCII);
+                    return;
+                case "ls bots":
+                    listDir("/sdcard/vpr/bots/");
+                    return;
+                case "ls scripts":
+                    listDir("/sdcard/vpr/scripts/");
+                    return;
+                case "ls apps":
+                    listDir("/sdcard/vpr/apps/");
+                    return;
+                case "ls storage":
+                    listDir("/sdcard/vpr/storage/");
+                    return;
+                case "ps":
+                    exec("ps aux");
+                    return;
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+
+            if (cmd.startsWith("ls")) {
+                exec(cmd);
+                return;
+            }
+
+            exec(cmd);
+        } catch (Exception e) { e.printStackTrace(); }
+    }
+
+    private void listDir(String path) {
+        SessionView sv = sessions.get(activeSession);
+        File dir = new File(path);
+        sv.print("\n[ " + path + " ]\n");
+        if (!dir.exists() || dir.listFiles() == null) {
+            sv.print("  (kosong)\n\n");
+            return;
         }
+        for (File f : dir.listFiles()) {
+            String size = StorageManager.formatSize(f.length());
+            sv.print("  " + f.getName() + "  (" + size + ")\n");
+        }
+        sv.print("\n");
     }
 
     private void confirmClear() {
@@ -203,7 +232,7 @@ public class MainActivity extends Activity {
             .show();
     }
 
-    private void exec(final String cmd) {
+    private void exec(String cmd) {
         if (sessions.isEmpty()) return;
         SessionView sv = sessions.get(activeSession);
         sv.print("\n$ " + cmd + "\n");
@@ -251,13 +280,19 @@ public class MainActivity extends Activity {
 
     private void pickFile() {
         try {
+            // Cek storage dulu
+            if (!storage.hasEnoughSpace(1024 * 1024)) {
+                sessions.get(activeSession).print(
+                    "\n[VPR] ⚠ Storage hampir penuh!\n" +
+                    storage.getStorageInfo() + "\n"
+                );
+                return;
+            }
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.setType("*/*");
             i.addCategory(Intent.CATEGORY_OPENABLE);
             startActivityForResult(Intent.createChooser(i, "Pilih File"), FILE_PICK);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     @Override
@@ -268,9 +303,7 @@ public class MainActivity extends Activity {
                 String name = getFileName(uri);
                 if (name != null) copyFileTo(uri, name);
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 
     private String getFileName(Uri uri) {
@@ -309,12 +342,20 @@ public class MainActivity extends Activity {
                 InputStream in = getContentResolver().openInputStream(uri);
                 FileOutputStream out = new FileOutputStream(dest);
                 byte[] buf = new byte[8192]; int len;
-                while ((len = in.read(buf)) > 0) out.write(buf, 0, len);
+                long total = 0;
+                while ((len = in.read(buf)) > 0) {
+                    out.write(buf, 0, len);
+                    total += len;
+                }
                 in.close(); out.close();
 
+                final long fileSize = total;
                 mainHandler.post(() -> {
                     sv.print("\n[VPR] ✓ Upload: " + name + "\n");
+                    sv.print("[VPR] Ukuran  : " + StorageManager.formatSize(fileSize) + "\n");
                     sv.print("[VPR] Disimpan: " + destDir + name + "\n");
+                    sv.print("[VPR] Sisa HP : " + StorageManager.formatSize(storage.getFreeBytes()) + "\n\n");
+
                     if (name.endsWith(".py") || name.endsWith(".js") || name.endsWith(".sh")) {
                         new AlertDialog.Builder(this)
                             .setTitle("Jalankan " + name + "?")
@@ -324,7 +365,7 @@ public class MainActivity extends Activity {
                     }
                 });
             } catch (Exception e) {
-                mainHandler.post(() -> sv.print("[ERROR] " + e.getMessage() + "\n"));
+                mainHandler.post(() -> sv.print("[ERROR] Upload gagal: " + e.getMessage() + "\n"));
             }
         }).start();
     }
