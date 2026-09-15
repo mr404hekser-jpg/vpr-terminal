@@ -197,6 +197,121 @@ public class MainActivity extends Activity {
                     return;
             }
 
+            // Security Tools
+            if (cmd.startsWith("scan ")) {
+                String[] p = cmd.split(" ");
+                if (p.length >= 4) {
+                    String h = p[1];
+                    int s = Integer.parseInt(p[2]);
+                    int e2 = Integer.parseInt(p[3]);
+                    SessionView sv2 = sessions.get(activeSession);
+                    sv2.print("[VPR] Scanning " + h + " port " + s + "-" + e2 + "...\n");
+                    new Thread(() -> {
+                        String res = SecurityTools.portScan(h, s, e2);
+                        mainHandler.post(() -> sv2.print(res));
+                    }).start();
+                } else {
+                    sessions.get(activeSession).print("Usage: scan [host] [start] [end]\n");
+                }
+                return;
+            }
+            if (cmd.startsWith("recon ")) {
+                String host = cmd.substring(6).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.hostInfo(host);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
+            if (cmd.startsWith("headers ")) {
+                String url = cmd.substring(8).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.headerGrab(url);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
+            if (cmd.startsWith("cve ")) {
+                String url = cmd.substring(4).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.cveCheck(url);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
+            if (cmd.startsWith("xss ")) {
+                String url = cmd.substring(4).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.xssTest(url);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
+            if (cmd.startsWith("stress ")) {
+                String[] p = cmd.split(" ");
+                if (p.length >= 4) {
+                    String url = p[1];
+                    int t = Integer.parseInt(p[2]);
+                    int r2 = Integer.parseInt(p[3]);
+                    SessionView sv2 = sessions.get(activeSession);
+                    new Thread(() -> SecurityTools.stressTest(url, t, r2, sv2, mainHandler)).start();
+                } else {
+                    sessions.get(activeSession).print("Usage: stress [url] [threads] [requests]\n");
+                }
+                return;
+            }
+            if (cmd.startsWith("dns ")) {
+                String host = cmd.substring(4).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.dnsLookup(host);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
+            if (cmd.startsWith("sqli ")) {
+                String url = cmd.substring(5).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.sqlTest(url);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
+            if (cmd.startsWith("dirbr ")) {
+                String url = cmd.substring(6).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> SecurityTools.dirBrute(url, sv2, mainHandler)).start();
+                return;
+            }
+            if (cmd.startsWith("banner ")) {
+                String[] p = cmd.split(" ");
+                if (p.length >= 3) {
+                    String h = p[1];
+                    int port = Integer.parseInt(p[2]);
+                    SessionView sv2 = sessions.get(activeSession);
+                    new Thread(() -> {
+                        String res = SecurityTools.bannerGrab(h, port);
+                        mainHandler.post(() -> sv2.print(res));
+                    }).start();
+                } else {
+                    sessions.get(activeSession).print("Usage: banner [host] [port]\n");
+                }
+                return;
+            }
+            if (cmd.startsWith("ping ")) {
+                String host = cmd.substring(5).trim();
+                SessionView sv2 = sessions.get(activeSession);
+                new Thread(() -> {
+                    String res = SecurityTools.ping(host);
+                    mainHandler.post(() -> sv2.print(res));
+                }).start();
+                return;
+            }
             if (cmd.startsWith("ls")) {
                 exec(cmd);
                 return;
@@ -378,3 +493,4 @@ public class MainActivity extends Activity {
         }
     }
 }
+// patch marker - security tools integrated via exec commands
