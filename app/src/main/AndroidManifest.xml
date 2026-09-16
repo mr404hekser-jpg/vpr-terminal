@@ -6,8 +6,6 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
     <uses-permission android:name="android.permission.WAKE_LOCK"/>
     <uses-permission android:name="android.permission.INTERNET"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"/>
 
     <application
         android:allowBackup="true"
@@ -16,7 +14,6 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:theme="@style/Theme.AppCompat.NoActionBar">
 
-        <!-- Splash -->
         <activity android:name=".SplashActivity" android:exported="true"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.NoActionBar">
@@ -26,29 +23,24 @@
             </intent-filter>
         </activity>
 
-        <!-- Home - pilih server -->
         <activity android:name=".HomeActivity" android:exported="false"
             android:screenOrientation="landscape"
             android:theme="@style/Theme.AppCompat.NoActionBar"/>
 
-        <!-- VPR Terminal -->
         <activity android:name=".MainActivity" android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.AppCompat.NoActionBar"/>
 
-        <!-- Hacking Suite -->
         <activity android:name=".HackingActivity" android:exported="false"
             android:screenOrientation="landscape"
             android:windowSoftInputMode="adjustResize"
             android:theme="@style/Theme.AppCompat.NoActionBar"/>
 
-        <!-- Service -->
         <service android:name=".VPRService" android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync"/>
 
-        <!-- Boot -->
         <receiver android:name=".BootReceiver" android:enabled="true"
             android:exported="true">
             <intent-filter>

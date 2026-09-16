@@ -7,6 +7,7 @@ import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -91,8 +92,7 @@ public class MainActivity extends Activity {
             btnNewSession.setOnClickListener(v -> createSession());
             btnClearSession.setOnClickListener(v -> confirmClear());
             cmdInput.setOnEditorActionListener((v, a, e) -> {
-                runCommand();
-                return true;
+                runCommand(); return true;
             });
 
         } catch (Exception e) { e.printStackTrace(); }
@@ -107,6 +107,8 @@ public class MainActivity extends Activity {
             switchSession(sessions.size() - 1);
             sv.print(ASCII);
             sv.print(storage.getStorageInfo() + "\n");
+            sv.print("  Python : " + DaemonManager.findPython() + "\n");
+            sv.print("  Node   : " + DaemonManager.findNode() + "\n\n");
             prefs.edit().putInt("session_count", sessionCount).apply();
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -145,7 +147,8 @@ public class MainActivity extends Activity {
             for (int i = 0; i < sessionTabBar.getChildCount(); i++) {
                 View v = sessionTabBar.getChildAt(i);
                 if (v instanceof Button)
-                    ((Button) v).setBackgroundColor(i == idx ? 0xFF0D3A5C : 0xFF1A1A1A);
+                    ((Button) v).setBackgroundColor(
+                        i == idx ? 0xFF0D3A5C : 0xFF1A1A1A);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -155,6 +158,7 @@ public class MainActivity extends Activity {
             String cmd = cmdInput.getText().toString().trim();
             if (cmd.isEmpty()) return;
             cmdInput.setText("");
+            if (sessions.isEmpty()) return;
             SessionView sv = sessions.get(activeSession);
 
             switch (cmd.toLowerCase()) {
@@ -174,42 +178,26 @@ public class MainActivity extends Activity {
                         "─────────────────────────\n\n");
                     return;
 
-                case "storage":
-                case "df":
+                case "storage": case "df":
                     sv.print("\n" + storage.getStorageInfo() + "\n");
                     return;
 
                 case "clear":
-                    sv.clear();
-                    sv.print(ASCII);
-                    return;
+                    sv.clear(); sv.print(ASCII); return;
 
                 case "ls bots":
-                    listDir("/sdcard/vpr/bots/", sv);
-                    return;
-
+                    listDir(storage.getBotsDir(), sv); return;
                 case "ls scripts":
-                    listDir("/sdcard/vpr/scripts/", sv);
-                    return;
-
+                    listDir(storage.getScriptsDir(), sv); return;
                 case "ls apps":
-                    listDir("/sdcard/vpr/apps/", sv);
-                    return;
-
+                    listDir(storage.getAppsDir(), sv); return;
                 case "ls storage":
-                    listDir("/sdcard/vpr/storage/", sv);
-                    return;
-
+                    listDir(storage.getStorageDir(), sv); return;
                 case "ps":
-                    exec("ps", sv);
-                    return;
+                    exec("ps", sv); return;
             }
 
-            if (cmd.startsWith("ls")) {
-                exec(cmd, sv);
-                return;
-            }
-
+            if (cmd.startsWith("ls")) { exec(cmd, sv); return; }
             exec(cmd, sv);
 
         } catch (Exception e) { e.printStackTrace(); }
@@ -219,8 +207,7 @@ public class MainActivity extends Activity {
         File dir = new File(path);
         sv.print("\n[ " + path + " ]\n");
         if (!dir.exists() || dir.listFiles() == null) {
-            sv.print("  (kosong)\n\n");
-            return;
+            sv.print("  (kosong)\n\n"); return;
         }
         for (File f : dir.listFiles()) {
             sv.print("  " + f.getName() + "  (" +
@@ -234,7 +221,8 @@ public class MainActivity extends Activity {
             .setTitle("Hapus Session?")
             .setMessage("Isi session ini akan dihapus.")
             .setPositiveButton("Hapus", (d, w) -> {
-                if (!sessions.isEmpty()) sessions.get(activeSession).clear();
+                if (!sessions.isEmpty())
+                    sessions.get(activeSession).clear();
             })
             .setNegativeButton("Batal", null)
             .show();
@@ -245,18 +233,21 @@ public class MainActivity extends Activity {
         new Thread(() -> {
             try {
                 String[] fc;
-                String botPath    = "/sdcard/vpr/bots/" + cmd;
-                String scriptPath = "/sdcard/vpr/scripts/" + cmd;
+                String botsPath    = storage.getBotsDir() + "/" + cmd;
+                String scriptsPath = storage.getScriptsDir() + "/" + cmd;
+                String appsPath    = storage.getAppsDir() + "/" + cmd;
+
+                String filePath = new File(botsPath).exists() ? botsPath
+                    : new File(scriptsPath).exists() ? scriptsPath
+                    : new File(appsPath).exists() ? appsPath
+                    : botsPath;
 
                 if (cmd.endsWith(".py")) {
-                    String path = new File(botPath).exists() ? botPath : scriptPath;
-                    fc = new String[]{"/data/data/com.termux/files/usr/bin/python3", path};
+                    fc = new String[]{DaemonManager.findPython(), filePath};
                 } else if (cmd.endsWith(".js")) {
-                    String path = new File(botPath).exists() ? botPath : scriptPath;
-                    fc = new String[]{"/data/data/com.termux/files/usr/bin/node", path};
+                    fc = new String[]{DaemonManager.findNode(), filePath};
                 } else if (cmd.endsWith(".sh")) {
-                    String path = new File(botPath).exists() ? botPath : scriptPath;
-                    fc = new String[]{"sh", path};
+                    fc = new String[]{"sh", filePath};
                 } else {
                     fc = new String[]{"sh", "-c", cmd};
                 }
@@ -275,27 +266,23 @@ public class MainActivity extends Activity {
                 }
 
                 int exit = p.waitFor();
-                mainHandler.post(() -> sv.print("\n[exit:" + exit + "]\n"));
+                mainHandler.post(() ->
+                    sv.print("\n[exit:" + exit + "]\n"));
 
             } catch (Exception e) {
-                mainHandler.post(() -> sv.print("[ERROR] " + e.getMessage() + "\n"));
+                mainHandler.post(() ->
+                    sv.print("[ERROR] " + e.getMessage() + "\n"));
             }
         }).start();
     }
 
     private void pickFile() {
         try {
-            if (!storage.hasEnoughSpace(1024 * 1024)) {
-                sessions.get(activeSession).print(
-                    "\n[VPR] Storage hampir penuh!\n" +
-                    storage.getStorageInfo() + "\n"
-                );
-                return;
-            }
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.setType("*/*");
             i.addCategory(Intent.CATEGORY_OPENABLE);
-            startActivityForResult(Intent.createChooser(i, "Pilih File"), FILE_PICK);
+            startActivityForResult(
+                Intent.createChooser(i, "Pilih File"), FILE_PICK);
         } catch (Exception e) { e.printStackTrace(); }
     }
 
@@ -337,32 +324,31 @@ public class MainActivity extends Activity {
         SessionView sv = sessions.get(activeSession);
         new Thread(() -> {
             try {
+                // Simpan ke internal storage - tidak butuh permission
                 String destDir = name.endsWith(".py") || name.endsWith(".js")
-                    ? "/sdcard/vpr/bots/"
+                    ? storage.getBotsDir()
                     : name.endsWith(".sh")
-                    ? "/sdcard/vpr/scripts/"
-                    : "/sdcard/vpr/storage/";
+                    ? storage.getScriptsDir()
+                    : storage.getStorageDir();
 
                 new File(destDir).mkdirs();
                 File dest = new File(destDir, name);
 
                 InputStream in = getContentResolver().openInputStream(uri);
+                if (in == null) throw new Exception("Cannot open file");
                 FileOutputStream out = new FileOutputStream(dest);
                 byte[] buf = new byte[8192];
-                int len;
-                long total = 0;
+                int len; long total = 0;
                 while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len);
-                    total += len;
+                    out.write(buf, 0, len); total += len;
                 }
-                in.close();
-                out.close();
+                in.close(); out.close();
 
                 final long fs = total;
                 mainHandler.post(() -> {
                     sv.print("\n[VPR] Upload: " + name + "\n");
                     sv.print("[VPR] Size  : " + StorageManager.formatSize(fs) + "\n");
-                    sv.print("[VPR] Path  : " + destDir + name + "\n");
+                    sv.print("[VPR] Path  : " + destDir + "/" + name + "\n");
                     sv.print("[VPR] Sisa  : " +
                         StorageManager.formatSize(storage.getFreeBytes()) + "\n\n");
 
@@ -370,14 +356,15 @@ public class MainActivity extends Activity {
                             || name.endsWith(".sh")) {
                         new AlertDialog.Builder(this)
                             .setTitle("Jalankan " + name + "?")
-                            .setPositiveButton("Ya", (d, w) -> exec(name, sv))
+                            .setPositiveButton("Ya",
+                                (d, w) -> exec(name, sv))
                             .setNegativeButton("Nanti", null)
                             .show();
                     }
                 });
             } catch (Exception e) {
-                mainHandler.post(() -> sv.print(
-                    "[ERROR] Upload: " + e.getMessage() + "\n"));
+                mainHandler.post(() ->
+                    sv.print("[ERROR] Upload: " + e.getMessage() + "\n"));
             }
         }).start();
     }
