@@ -159,26 +159,18 @@ public class MainActivity extends Activity {
 
             switch (cmd.toLowerCase()) {
                 case "help":
-                    sv.print("\n[ VPR Commands ]\n" +
+                    sv.print("\n[ VPR Server Commands ]\n" +
                         "─────────────────────────\n" +
-                        "[ General ]\n" +
-                        "  storage / df           — Info storage real\n" +
-                        "  ls bots / scripts      — List file\n" +
-                        "  clear                  — Bersihkan terminal\n" +
-                        "  ps                     — Proses aktif\n" +
-                        "─────────────────────────\n" +
-                        "[ Security & Pentest ]\n" +
-                        "  scan [host] [s] [e]    — Port scanner\n" +
-                        "  recon [host]           — Host recon + whois\n" +
-                        "  headers [url]          — HTTP header grab\n" +
-                        "  cve [url]              — CVE + vuln scan\n" +
-                        "  xss [url]              — XSS tester\n" +
-                        "  sqli [url]             — SQL injection test\n" +
-                        "  dirbr [url]            — Dir brute force\n" +
-                        "  banner [host] [port]   — Banner grab\n" +
-                        "  stress [url] [t] [r]   — Stress test\n" +
-                        "  dns [host]             — DNS lookup\n" +
-                        "  ping [host]            — Ping host\n" +
+                        "  storage / df     — Info storage real\n" +
+                        "  ls bots          — List file di bots/\n" +
+                        "  ls scripts       — List file di scripts/\n" +
+                        "  ls apps          — List file di apps/\n" +
+                        "  ls storage       — List file di storage/\n" +
+                        "  clear            — Bersihkan terminal\n" +
+                        "  ps               — Proses aktif\n" +
+                        "  [file.py]        — Jalankan Python\n" +
+                        "  [file.sh]        — Jalankan Shell\n" +
+                        "  [file.js]        — Jalankan Node.js\n" +
                         "─────────────────────────\n\n");
                     return;
 
@@ -211,128 +203,6 @@ public class MainActivity extends Activity {
                 case "ps":
                     exec("ps", sv);
                     return;
-            }
-
-            // Security commands
-            if (cmd.startsWith("scan ")) {
-                String[] p = cmd.split(" ");
-                if (p.length >= 4) {
-                    String h = p[1];
-                    int s = Integer.parseInt(p[2]);
-                    int e = Integer.parseInt(p[3]);
-                    sv.print("[VPR] Scanning " + h + " port " + s + "-" + e + "...\n");
-                    new Thread(() -> {
-                        String res = SecurityTools.portScan(h, s, e);
-                        mainHandler.post(() -> sv.print(res));
-                    }).start();
-                } else {
-                    sv.print("Usage: scan [host] [start] [end]\n");
-                }
-                return;
-            }
-
-            if (cmd.startsWith("recon ")) {
-                String host = cmd.substring(6).trim();
-                sv.print("[VPR] Recon " + host + "...\n");
-                new Thread(() -> {
-                    String res = SecurityTools.hostRecon(host);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
-            }
-
-            if (cmd.startsWith("headers ")) {
-                String url = cmd.substring(8).trim();
-                sv.print("[VPR] Grabbing headers...\n");
-                new Thread(() -> {
-                    String res = SecurityTools.headerGrab(url);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
-            }
-
-            if (cmd.startsWith("cve ")) {
-                String url = cmd.substring(4).trim();
-                sv.print("[VPR] CVE scanning...\n");
-                new Thread(() -> {
-                    String res = SecurityTools.cveCheck(url);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
-            }
-
-            if (cmd.startsWith("xss ")) {
-                String url = cmd.substring(4).trim();
-                sv.print("[VPR] XSS testing...\n");
-                new Thread(() -> {
-                    String res = SecurityTools.xssTest(url);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
-            }
-
-            if (cmd.startsWith("sqli ")) {
-                String url = cmd.substring(5).trim();
-                sv.print("[VPR] SQLi testing...\n");
-                new Thread(() -> {
-                    String res = SecurityTools.sqlTest(url);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
-            }
-
-            if (cmd.startsWith("dirbr ")) {
-                String url = cmd.substring(6).trim();
-                sv.print("[VPR] Dir brute force...\n");
-                new Thread(() -> SecurityTools.dirBrute(url, sv, mainHandler)).start();
-                return;
-            }
-
-            if (cmd.startsWith("banner ")) {
-                String[] p = cmd.split(" ");
-                if (p.length >= 3) {
-                    String h = p[1];
-                    int port = Integer.parseInt(p[2]);
-                    sv.print("[VPR] Banner grabbing...\n");
-                    new Thread(() -> {
-                        String res = SecurityTools.bannerGrab(h, port);
-                        mainHandler.post(() -> sv.print(res));
-                    }).start();
-                } else {
-                    sv.print("Usage: banner [host] [port]\n");
-                }
-                return;
-            }
-
-            if (cmd.startsWith("stress ")) {
-                String[] p = cmd.split(" ");
-                if (p.length >= 4) {
-                    String url = p[1];
-                    int t = Integer.parseInt(p[2]);
-                    int r = Integer.parseInt(p[3]);
-                    new Thread(() -> SecurityTools.stressTest(url, t, r, sv, mainHandler)).start();
-                } else {
-                    sv.print("Usage: stress [url] [threads] [requests]\n");
-                }
-                return;
-            }
-
-            if (cmd.startsWith("dns ")) {
-                String host = cmd.substring(4).trim();
-                new Thread(() -> {
-                    String res = SecurityTools.dnsLookup(host);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
-            }
-
-            if (cmd.startsWith("ping ")) {
-                String host = cmd.substring(5).trim();
-                new Thread(() -> {
-                    String res = SecurityTools.ping(host);
-                    mainHandler.post(() -> sv.print(res));
-                }).start();
-                return;
             }
 
             if (cmd.startsWith("ls")) {
