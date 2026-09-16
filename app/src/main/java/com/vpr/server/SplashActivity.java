@@ -9,7 +9,6 @@ import android.os.Looper;
 import android.view.WindowManager;
 
 public class SplashActivity extends Activity {
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -22,14 +21,10 @@ public class SplashActivity extends Activity {
             setContentView(R.layout.activity_splash);
             new Handler(Looper.getMainLooper()).postDelayed(() -> {
                 try {
-                    startActivity(new Intent(SplashActivity.this, MainActivity.class));
+                    startActivity(new Intent(SplashActivity.this, HomeActivity.class));
                     finish();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                } catch (Exception e) { e.printStackTrace(); }
             }, 3000);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        } catch (Exception e) { e.printStackTrace(); }
     }
 }

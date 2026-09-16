@@ -38,7 +38,7 @@ public class SessionView {
         scrollView.addView(textView);
 
         // Restore konten tersimpan
-        String saved = prefs.getString("sess_" + id, null);
+        String saved = prefs != null ? prefs.getString("sess_" + id, null) : null;
         if (saved != null) {
             buffer.append(saved);
             textView.setText(buffer.toString());
@@ -57,6 +57,7 @@ public class SessionView {
 
     public void save() {
         try {
+            if (prefs == null) return;
             String content = buffer.toString();
             if (content.length() > 8000) {
                 content = content.substring(content.length() - 8000);

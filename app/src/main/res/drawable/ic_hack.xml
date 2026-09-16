@@ -1,0 +1,27 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="64dp" android:height="64dp"
+    android:viewportWidth="64" android:viewportHeight="64">
+    <!-- Skull shape -->
+    <path android:fillColor="#FF4444"
+        android:pathData="M32,6 C18,6 10,16 10,26 C10,34 14,40 20,43 L20,50 Q20,52 22,52 L42,52 Q44,52 44,50 L44,43 C50,40 54,34 54,26 C54,16 46,6 32,6 Z"/>
+    <!-- Eyes -->
+    <path android:fillColor="#000000"
+        android:pathData="M22,24 A5,6 0 1,1 22.001,24 Z"/>
+    <path android:fillColor="#000000"
+        android:pathData="M42,24 A5,6 0 1,1 42.001,24 Z"/>
+    <!-- Eye glare -->
+    <path android:fillColor="#FF4444"
+        android:pathData="M20,21 A2,2 0 1,1 20.001,21 Z"/>
+    <path android:fillColor="#FF4444"
+        android:pathData="M40,21 A2,2 0 1,1 40.001,21 Z"/>
+    <!-- Teeth -->
+    <path android:fillColor="#000000"
+        android:pathData="M22,52 L22,56 L27,56 L27,52 Z"/>
+    <path android:fillColor="#000000"
+        android:pathData="M29,52 L29,58 L35,58 L35,52 Z"/>
+    <path android:fillColor="#000000"
+        android:pathData="M37,52 L37,56 L42,56 L42,52 Z"/>
+    <!-- Nose -->
+    <path android:fillColor="#CC2222"
+        android:pathData="M29,32 L32,38 L35,32 Z"/>
+</vector>
