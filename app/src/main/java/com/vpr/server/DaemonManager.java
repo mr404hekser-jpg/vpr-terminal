@@ -13,43 +13,51 @@ public class DaemonManager {
     private final Map<String, Process> procs = new HashMap<>();
     private final StorageManager sm;
 
-    // Cari Python/Node di berbagai lokasi
-    private static final String[] PYTHON_PATHS = {
-        "/data/data/com.termux/files/usr/bin/python3",
-        "/data/data/com.termux/files/usr/bin/python",
-        "/system/bin/python3",
-        "/system/bin/python",
-        "python3",
-        "python"
-    };
-
-    private static final String[] NODE_PATHS = {
-        "/data/data/com.termux/files/usr/bin/node",
-        "/data/data/com.termux/files/usr/bin/nodejs",
-        "/system/bin/node",
-        "node"
-    };
-
     public DaemonManager(Context ctx) {
         this.sm = new StorageManager(ctx);
     }
 
-    public static String findPython() {
-        for (String p : PYTHON_PATHS) {
-            if (p.startsWith("/")) {
-                if (new File(p).exists()) return p;
-            } else { return p; }
+    // Cari binary di semua lokasi
+    public static String findBinary(String... names) {
+        String[] searchPaths = {
+            "/data/data/com.termux/files/usr/bin/",
+            "/data/data/com.termux/files/usr/local/bin/",
+            "/system/bin/",
+            "/system/xbin/",
+            "/sbin/",
+            "/usr/bin/",
+            "/usr/local/bin/"
+        };
+        for (String name : names) {
+            // Cek path lengkap dulu
+            if (name.startsWith("/") && new File(name).exists() && new File(name).canExecute())
+                return name;
+            // Cek di semua search path
+            for (String path : searchPaths) {
+                File f = new File(path + name);
+                if (f.exists() && f.canExecute()) return f.getAbsolutePath();
+            }
         }
-        return "python3";
+        return null;
     }
 
-    public static String findNode() {
-        for (String p : NODE_PATHS) {
-            if (p.startsWith("/")) {
-                if (new File(p).exists()) return p;
-            } else { return p; }
-        }
-        return "node";
+    public static String getPython() {
+        String found = findBinary("python3", "python", "python3.11", "python3.10", "python3.9");
+        return found != null ? found : null;
+    }
+
+    public static String getNode() {
+        String found = findBinary("node", "nodejs", "node18", "node16");
+        return found != null ? found : null;
+    }
+
+    public static String getShell() {
+        String found = findBinary("bash", "sh", "ash", "dash");
+        return found != null ? found : "/system/bin/sh";
+    }
+
+    public static boolean isTermuxInstalled() {
+        return new File("/data/data/com.termux/files/usr/bin/").exists();
     }
 
     public void start() {
@@ -65,7 +73,7 @@ public class DaemonManager {
             }
         });
         thread.start();
-        Log.d(TAG, "Daemon started. VPR root: " + sm.getVPRRoot());
+        Log.d(TAG, "Daemon started. Root: " + sm.getVPRRoot());
     }
 
     private void scan(String dir) {
@@ -77,38 +85,49 @@ public class DaemonManager {
         for (File f : files) {
             String key  = f.getAbsolutePath();
             String name = f.getName();
-
-            // Cek apakah masih jalan
-            Process ex = procs.get(key);
+            Process ex  = procs.get(key);
             if (ex != null) {
                 try { ex.exitValue(); procs.remove(key); }
                 catch (IllegalThreadStateException e) { continue; }
             }
 
             try {
-                Process p = null;
-                File log = new File(sm.getLogsDir(), name + ".log");
-
-                if (name.endsWith(".sh")) {
-                    p = new ProcessBuilder("sh", key)
-                        .redirectErrorStream(true).start();
-                } else if (name.endsWith(".py")) {
-                    p = new ProcessBuilder(findPython(), key)
-                        .redirectErrorStream(true).start();
-                } else if (name.endsWith(".js")) {
-                    p = new ProcessBuilder(findNode(), key)
-                        .redirectErrorStream(true).start();
-                }
-
+                Process p = buildProcess(f);
                 if (p != null) {
                     procs.put(key, p);
-                    pipeLog(p, log);
+                    pipeLog(p, new File(sm.getLogsDir(), name + ".log"));
                     Log.d(TAG, "Started: " + name);
                 }
-            } catch (IOException e) {
+            } catch (Exception e) {
                 Log.e(TAG, "Failed: " + name + " " + e.getMessage());
             }
         }
+    }
+
+    public static Process buildProcess(File f) throws IOException {
+        String name = f.getName();
+        String path = f.getAbsolutePath();
+        ProcessBuilder pb = null;
+
+        if (name.endsWith(".sh")) {
+            String shell = getShell();
+            pb = new ProcessBuilder(shell, path);
+        } else if (name.endsWith(".py")) {
+            String python = getPython();
+            if (python == null) return null;
+            pb = new ProcessBuilder(python, path);
+        } else if (name.endsWith(".js")) {
+            String node = getNode();
+            if (node == null) return null;
+            pb = new ProcessBuilder(node, path);
+        }
+
+        if (pb != null) {
+            pb.redirectErrorStream(true);
+            pb.directory(f.getParentFile());
+            return pb.start();
+        }
+        return null;
     }
 
     private void pipeLog(Process p, File log) {

@@ -7,7 +7,6 @@ import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.database.Cursor;
 import android.net.Uri;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -42,17 +41,24 @@ public class MainActivity extends Activity {
     private StorageManager storage;
     private static final int FILE_PICK = 100;
 
-    private static final String ASCII =
-        "  \u2588\u2588\u2557   \u2588\u2588\u2557\u2588\u2588\u2588\u2588\u2588\u2588\u2557 \u2588\u2588\u2588\u2588\u2588\u2588\u2557 \n" +
-        "  \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\n" +
-        "  \u2588\u2588\u2551   \u2588\u2588\u2551\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\u2588\u2588\u2588\u2588\u2588\u2588\u2554\u255D\n" +
-        "  \u255A\u2588\u2588\u2557 \u2588\u2588\u2554\u255D\u2588\u2588\u2554\u2550\u2550\u2550\u255D \u2588\u2588\u2554\u2550\u2550\u2588\u2588\u2557\n" +
-        "   \u255A\u2588\u2588\u2588\u2588\u2554\u255D \u2588\u2588\u2551     \u2588\u2588\u2551  \u2588\u2588\u2551\n" +
-        "    \u255A\u2550\u2550\u2550\u255D  \u255A\u2550\u255D     \u255A\u2550\u255D  \u255A\u2550\u255D\n" +
-        "        S E R V E R  v2.1\n\n" +
-        "  Welcome to VPR Server\n" +
-        "  Ketik 'help' untuk daftar perintah\n" +
-        "  ─────────────────────────────────\n\n";
+    private String getASCII() {
+        String pythonStatus = DaemonManager.getPython() != null
+            ? DaemonManager.getPython() : "NOT FOUND - install Termux + Python";
+        String nodeStatus = DaemonManager.getNode() != null
+            ? DaemonManager.getNode() : "NOT FOUND - install Termux + Node";
+        String shellStatus = DaemonManager.getShell();
+
+        return
+        "  VPR SERVER  v2.1\n" +
+        "  Virtual Persistent Runtime\n" +
+        "  ---\n" +
+        "  Shell  : " + shellStatus + "\n" +
+        "  Python : " + pythonStatus + "\n" +
+        "  Node   : " + nodeStatus + "\n" +
+        "  Storage: " + storage.getVPRRoot() + "\n" +
+        "  ---\n" +
+        "  Ketik \'help\' untuk daftar perintah\n\n";
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,10 +111,8 @@ public class MainActivity extends Activity {
             sessions.add(sv);
             addTab(sessions.size() - 1);
             switchSession(sessions.size() - 1);
-            sv.print(ASCII);
+            sv.print(getASCII());
             sv.print(storage.getStorageInfo() + "\n");
-            sv.print("  Python : " + DaemonManager.findPython() + "\n");
-            sv.print("  Node   : " + DaemonManager.findNode() + "\n\n");
             prefs.edit().putInt("session_count", sessionCount).apply();
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -147,8 +151,7 @@ public class MainActivity extends Activity {
             for (int i = 0; i < sessionTabBar.getChildCount(); i++) {
                 View v = sessionTabBar.getChildAt(i);
                 if (v instanceof Button)
-                    ((Button) v).setBackgroundColor(
-                        i == idx ? 0xFF0D3A5C : 0xFF1A1A1A);
+                    ((Button) v).setBackgroundColor(i == idx ? 0xFF0D3A5C : 0xFF1A1A1A);
             }
         } catch (Exception e) { e.printStackTrace(); }
     }
@@ -164,18 +167,19 @@ public class MainActivity extends Activity {
             switch (cmd.toLowerCase()) {
                 case "help":
                     sv.print("\n[ VPR Server Commands ]\n" +
-                        "─────────────────────────\n" +
-                        "  storage / df     — Info storage real\n" +
-                        "  ls bots          — List file di bots/\n" +
-                        "  ls scripts       — List file di scripts/\n" +
-                        "  ls apps          — List file di apps/\n" +
-                        "  ls storage       — List file di storage/\n" +
-                        "  clear            — Bersihkan terminal\n" +
-                        "  ps               — Proses aktif\n" +
-                        "  [file.py]        — Jalankan Python\n" +
-                        "  [file.sh]        — Jalankan Shell\n" +
-                        "  [file.js]        — Jalankan Node.js\n" +
-                        "─────────────────────────\n\n");
+                        "---\n" +
+                        "  storage / df     - Info storage\n" +
+                        "  ls bots          - List bots\n" +
+                        "  ls scripts       - List scripts\n" +
+                        "  ls apps          - List apps\n" +
+                        "  ls storage       - List storage\n" +
+                        "  clear            - Bersihkan terminal\n" +
+                        "  ps               - Proses aktif\n" +
+                        "  env              - Cek runtime tersedia\n" +
+                        "  [file.py]        - Jalankan Python\n" +
+                        "  [file.sh]        - Jalankan Shell\n" +
+                        "  [file.js]        - Jalankan Node.js\n" +
+                        "---\n\n");
                     return;
 
                 case "storage": case "df":
@@ -183,18 +187,23 @@ public class MainActivity extends Activity {
                     return;
 
                 case "clear":
-                    sv.clear(); sv.print(ASCII); return;
+                    sv.clear(); sv.print(getASCII()); return;
 
-                case "ls bots":
-                    listDir(storage.getBotsDir(), sv); return;
-                case "ls scripts":
-                    listDir(storage.getScriptsDir(), sv); return;
-                case "ls apps":
-                    listDir(storage.getAppsDir(), sv); return;
-                case "ls storage":
-                    listDir(storage.getStorageDir(), sv); return;
-                case "ps":
-                    exec("ps", sv); return;
+                case "env":
+                    sv.print("\n[ Runtime Environment ]\n");
+                    sv.print("  Shell  : " + DaemonManager.getShell() + "\n");
+                    String py = DaemonManager.getPython();
+                    sv.print("  Python : " + (py != null ? py : "NOT FOUND") + "\n");
+                    String nd = DaemonManager.getNode();
+                    sv.print("  Node   : " + (nd != null ? nd : "NOT FOUND") + "\n");
+                    sv.print("  Termux : " + (DaemonManager.isTermuxInstalled() ? "Installed" : "NOT installed") + "\n\n");
+                    return;
+
+                case "ls bots":    listDir(storage.getBotsDir(), sv); return;
+                case "ls scripts": listDir(storage.getScriptsDir(), sv); return;
+                case "ls apps":    listDir(storage.getAppsDir(), sv); return;
+                case "ls storage": listDir(storage.getStorageDir(), sv); return;
+                case "ps":         exec("ps", sv); return;
             }
 
             if (cmd.startsWith("ls")) { exec(cmd, sv); return; }
@@ -221,8 +230,7 @@ public class MainActivity extends Activity {
             .setTitle("Hapus Session?")
             .setMessage("Isi session ini akan dihapus.")
             .setPositiveButton("Hapus", (d, w) -> {
-                if (!sessions.isEmpty())
-                    sessions.get(activeSession).clear();
+                if (!sessions.isEmpty()) sessions.get(activeSession).clear();
             })
             .setNegativeButton("Batal", null)
             .show();
@@ -232,7 +240,7 @@ public class MainActivity extends Activity {
         sv.print("\n$ " + cmd + "\n");
         new Thread(() -> {
             try {
-                String[] fc;
+                ProcessBuilder pb;
                 String botsPath    = storage.getBotsDir() + "/" + cmd;
                 String scriptsPath = storage.getScriptsDir() + "/" + cmd;
                 String appsPath    = storage.getAppsDir() + "/" + cmd;
@@ -243,16 +251,29 @@ public class MainActivity extends Activity {
                     : botsPath;
 
                 if (cmd.endsWith(".py")) {
-                    fc = new String[]{DaemonManager.findPython(), filePath};
+                    String python = DaemonManager.getPython();
+                    if (python == null) {
+                        mainHandler.post(() -> sv.print(
+                            "[ERROR] Python tidak ditemukan.\n" +
+                            "Install Termux lalu: pkg install python\n"));
+                        return;
+                    }
+                    pb = new ProcessBuilder(python, filePath);
                 } else if (cmd.endsWith(".js")) {
-                    fc = new String[]{DaemonManager.findNode(), filePath};
+                    String node = DaemonManager.getNode();
+                    if (node == null) {
+                        mainHandler.post(() -> sv.print(
+                            "[ERROR] Node.js tidak ditemukan.\n" +
+                            "Install Termux lalu: pkg install nodejs\n"));
+                        return;
+                    }
+                    pb = new ProcessBuilder(node, filePath);
                 } else if (cmd.endsWith(".sh")) {
-                    fc = new String[]{"sh", filePath};
+                    pb = new ProcessBuilder(DaemonManager.getShell(), filePath);
                 } else {
-                    fc = new String[]{"sh", "-c", cmd};
+                    pb = new ProcessBuilder(DaemonManager.getShell(), "-c", cmd);
                 }
 
-                ProcessBuilder pb = new ProcessBuilder(fc);
                 pb.redirectErrorStream(true);
                 Process p = pb.start();
 
@@ -266,12 +287,10 @@ public class MainActivity extends Activity {
                 }
 
                 int exit = p.waitFor();
-                mainHandler.post(() ->
-                    sv.print("\n[exit:" + exit + "]\n"));
+                mainHandler.post(() -> sv.print("\n[exit:" + exit + "]\n"));
 
             } catch (Exception e) {
-                mainHandler.post(() ->
-                    sv.print("[ERROR] " + e.getMessage() + "\n"));
+                mainHandler.post(() -> sv.print("[ERROR] " + e.getMessage() + "\n"));
             }
         }).start();
     }
@@ -281,8 +300,7 @@ public class MainActivity extends Activity {
             Intent i = new Intent(Intent.ACTION_GET_CONTENT);
             i.setType("*/*");
             i.addCategory(Intent.CATEGORY_OPENABLE);
-            startActivityForResult(
-                Intent.createChooser(i, "Pilih File"), FILE_PICK);
+            startActivityForResult(Intent.createChooser(i, "Pilih File"), FILE_PICK);
         } catch (Exception e) { e.printStackTrace(); }
     }
 
@@ -301,13 +319,11 @@ public class MainActivity extends Activity {
     private String getFileName(Uri uri) {
         try {
             if ("content".equals(uri.getScheme())) {
-                Cursor c = getContentResolver().query(
-                    uri, null, null, null, null);
+                Cursor c = getContentResolver().query(uri, null, null, null, null);
                 if (c != null) {
                     try {
                         if (c.moveToFirst()) {
-                            int idx = c.getColumnIndex(
-                                OpenableColumns.DISPLAY_NAME);
+                            int idx = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
                             if (idx >= 0) return c.getString(idx);
                         }
                     } finally { c.close(); }
@@ -324,7 +340,6 @@ public class MainActivity extends Activity {
         SessionView sv = sessions.get(activeSession);
         new Thread(() -> {
             try {
-                // Simpan ke internal storage - tidak butuh permission
                 String destDir = name.endsWith(".py") || name.endsWith(".js")
                     ? storage.getBotsDir()
                     : name.endsWith(".sh")
@@ -339,9 +354,7 @@ public class MainActivity extends Activity {
                 FileOutputStream out = new FileOutputStream(dest);
                 byte[] buf = new byte[8192];
                 int len; long total = 0;
-                while ((len = in.read(buf)) > 0) {
-                    out.write(buf, 0, len); total += len;
-                }
+                while ((len = in.read(buf)) > 0) { out.write(buf, 0, len); total += len; }
                 in.close(); out.close();
 
                 final long fs = total;
@@ -349,22 +362,18 @@ public class MainActivity extends Activity {
                     sv.print("\n[VPR] Upload: " + name + "\n");
                     sv.print("[VPR] Size  : " + StorageManager.formatSize(fs) + "\n");
                     sv.print("[VPR] Path  : " + destDir + "/" + name + "\n");
-                    sv.print("[VPR] Sisa  : " +
-                        StorageManager.formatSize(storage.getFreeBytes()) + "\n\n");
+                    sv.print("[VPR] Sisa  : " + StorageManager.formatSize(storage.getFreeBytes()) + "\n\n");
 
-                    if (name.endsWith(".py") || name.endsWith(".js")
-                            || name.endsWith(".sh")) {
+                    if (name.endsWith(".py") || name.endsWith(".js") || name.endsWith(".sh")) {
                         new AlertDialog.Builder(this)
                             .setTitle("Jalankan " + name + "?")
-                            .setPositiveButton("Ya",
-                                (d, w) -> exec(name, sv))
+                            .setPositiveButton("Ya", (d, w) -> exec(name, sv))
                             .setNegativeButton("Nanti", null)
                             .show();
                     }
                 });
             } catch (Exception e) {
-                mainHandler.post(() ->
-                    sv.print("[ERROR] Upload: " + e.getMessage() + "\n"));
+                mainHandler.post(() -> sv.print("[ERROR] Upload: " + e.getMessage() + "\n"));
             }
         }).start();
     }
