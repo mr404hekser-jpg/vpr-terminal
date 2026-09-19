@@ -2,16 +2,18 @@ package com.vpr.server;
 
 import android.content.Context;
 import android.util.Log;
-import org.mozilla.javascript.Context;
+import org.mozilla.javascript.ScriptableObject;
+import org.mozilla.javascript.BaseFunction;
 import org.mozilla.javascript.Scriptable;
 import org.python.util.PythonInterpreter;
+import org.python.core.PyException;
 import java.io.*;
 import java.util.*;
 
 public class VPRScriptEngine {
 
     private static final String TAG = "VPR-Engine";
-    private final android.content.Context appCtx;
+    private final Context ctx;
 
     public interface OutputListener {
         void onOutput(String text);
@@ -19,12 +21,12 @@ public class VPRScriptEngine {
         void onDone(int exitCode);
     }
 
-    public VPRScriptEngine(android.content.Context ctx) {
-        this.appCtx = ctx;
+    public VPRScriptEngine(Context ctx) {
+        this.ctx = ctx;
     }
 
-    // ─── Run Shell Command ───
-    public void runShell(String command, File workDir, OutputListener listener) {
+    // ─── Shell Command ───
+    public void runShell(String command, File workDir, OutputListener cb) {
         new Thread(() -> {
             try {
                 String shell = findShell();
@@ -32,241 +34,220 @@ public class VPRScriptEngine {
                 pb.redirectErrorStream(true);
                 if (workDir != null && workDir.exists()) pb.directory(workDir);
 
-                // Set environment
                 Map<String, String> env = pb.environment();
-                env.put("HOME", appCtx.getFilesDir().getAbsolutePath());
-                env.put("TMPDIR", appCtx.getCacheDir().getAbsolutePath());
+                env.put("HOME", ctx.getFilesDir().getAbsolutePath());
+                env.put("TMPDIR", ctx.getCacheDir().getAbsolutePath());
                 env.put("PATH", "/system/bin:/system/xbin:" +
-                    "/data/data/com.termux/files/usr/bin:" + env.get("PATH"));
+                    "/data/data/com.termux/files/usr/bin:" +
+                    env.getOrDefault("PATH", ""));
 
                 Process p = pb.start();
-
-                // Real-time output
                 BufferedReader br = new BufferedReader(
                     new InputStreamReader(p.getInputStream()));
-                char[] buf = new char[256];
+                char[] buf = new char[512];
                 int len;
                 while ((len = br.read(buf, 0, buf.length)) != -1) {
                     final String out = new String(buf, 0, len);
-                    listener.onOutput(out);
+                    cb.onOutput(out);
                 }
-
                 int exit = p.waitFor();
-                listener.onDone(exit);
-
+                cb.onDone(exit);
             } catch (Exception e) {
-                listener.onError("[ERROR] " + e.getMessage() + "\n");
-                listener.onDone(1);
+                cb.onError("[ERROR] " + e.getMessage() + "\n");
+                cb.onDone(1);
             }
         }).start();
     }
 
-    // ─── Run Shell File (.sh) ───
-    public void runShellFile(File file, OutputListener listener) {
+    // ─── Shell File ───
+    public void runShellFile(File file, OutputListener cb) {
         new Thread(() -> {
             try {
                 ProcessBuilder pb = new ProcessBuilder(findShell(), file.getAbsolutePath());
                 pb.redirectErrorStream(true);
                 pb.directory(file.getParentFile());
-
                 Map<String, String> env = pb.environment();
-                env.put("HOME", appCtx.getFilesDir().getAbsolutePath());
-                env.put("TMPDIR", appCtx.getCacheDir().getAbsolutePath());
-
+                env.put("HOME", ctx.getFilesDir().getAbsolutePath());
+                env.put("TMPDIR", ctx.getCacheDir().getAbsolutePath());
                 Process p = pb.start();
                 BufferedReader br = new BufferedReader(
                     new InputStreamReader(p.getInputStream()));
-                char[] buf = new char[256];
+                char[] buf = new char[512];
                 int len;
                 while ((len = br.read(buf, 0, buf.length)) != -1) {
                     final String out = new String(buf, 0, len);
-                    listener.onOutput(out);
+                    cb.onOutput(out);
                 }
-                int exit = p.waitFor();
-                listener.onDone(exit);
+                cb.onDone(p.waitFor());
             } catch (Exception e) {
-                listener.onError("[ERROR] " + e.getMessage() + "\n");
-                listener.onDone(1);
+                cb.onError("[ERROR] " + e.getMessage() + "\n");
+                cb.onDone(1);
             }
         }).start();
     }
 
-    // ─── Run JavaScript (Rhino Engine) ───
-    public void runJavaScript(String code, String fileName, OutputListener listener) {
+    // ─── JavaScript (Rhino) ───
+    public void runJavaScript(String code, String fileName, OutputListener cb) {
         new Thread(() -> {
-            Context cx = Context.enter();
+            org.mozilla.javascript.Context cx = org.mozilla.javascript.Context.enter();
             try {
-                cx.setOptimizationLevel(-1); // Interpreted mode for Android
-
-                // Custom output capture
-                StringBuilder output = new StringBuilder();
+                cx.setOptimizationLevel(-1);
                 Scriptable scope = cx.initStandardObjects();
 
-                // Inject print functions
-                org.mozilla.javascript.ScriptableObject.putProperty(scope, "print",
-                    new org.mozilla.javascript.BaseFunction() {
+                // console.log
+                ScriptableObject.putProperty(scope, "print",
+                    new BaseFunction() {
                         @Override
-                        public Object call(Context cx, Scriptable scope,
-                                           Scriptable thisObj, Object[] args) {
+                        public Object call(org.mozilla.javascript.Context cx,
+                                           Scriptable scope, Scriptable thisObj,
+                                           Object[] args) {
                             StringBuilder sb = new StringBuilder();
-                            for (Object arg : args) sb.append(Context.toString(arg));
-                            sb.append("\n");
-                            listener.onOutput(sb.toString());
-                            return Context.getUndefinedValue();
+                            for (Object a : args) {
+                                if (sb.length() > 0) sb.append(" ");
+                                sb.append(org.mozilla.javascript.Context.toString(a));
+                            }
+                            cb.onOutput(sb.append("\n").toString());
+                            return org.mozilla.javascript.Context.getUndefinedValue();
                         }
                     });
 
-                org.mozilla.javascript.ScriptableObject.putProperty(scope, "console",
-                    cx.evaluateString(scope,
-                        "({ log: function() { var s=''; for(var i=0;i<arguments.length;i++)" +
-                        "{ if(i>0)s+=' '; s+=String(arguments[i]); } print(s); }," +
-                        "error: function() { var s='[ERR] '; for(var i=0;i<arguments.length;i++)" +
-                        "{ if(i>0)s+=' '; s+=String(arguments[i]); } print(s); } })",
-                        "console", 1, null));
+                cx.evaluateString(scope,
+                    "var console = {" +
+                    "  log: function(){var s=\'\';for(var i=0;i<arguments.length;i++){if(i>0)s+=\' \';s+=String(arguments[i]);}print(s);}," +
+                    "  error: function(){var s=\'[ERR] \';for(var i=0;i<arguments.length;i++){if(i>0)s+=\' \';s+=String(arguments[i]);}print(s);}," +
+                    "  warn: function(){var s=\'[WARN] \';for(var i=0;i<arguments.length;i++){if(i>0)s+=\' \';s+=String(arguments[i]);}print(s);}" +
+                    "};",
+                    "console_setup", 1, null);
 
-                // Inject require stub
-                org.mozilla.javascript.ScriptableObject.putProperty(scope, "require",
-                    new org.mozilla.javascript.BaseFunction() {
+                cx.evaluateString(scope,
+                    "var process = {argv:[\'node\',\'" + fileName + "\'],env:{},exit:function(c){},stdout:{write:function(s){print(s);}},stderr:{write:function(s){print(\'[ERR] \'+s);}}};",
+                    "process_setup", 1, null);
+
+                ScriptableObject.putProperty(scope, "require",
+                    new BaseFunction() {
                         @Override
-                        public Object call(Context cx, Scriptable scope,
-                                           Scriptable thisObj, Object[] args) {
-                            listener.onOutput("[VPR] require('" + args[0] + "') - limited support\n");
+                        public Object call(org.mozilla.javascript.Context cx,
+                                           Scriptable scope, Scriptable thisObj,
+                                           Object[] args) {
+                            cb.onOutput("[VPR] require('" +
+                                org.mozilla.javascript.Context.toString(args[0]) +
+                                "') - not supported in built-in engine\n");
                             return cx.newObject(scope);
                         }
                     });
 
-                // Process
-                org.mozilla.javascript.ScriptableObject.putProperty(scope, "process",
-                    cx.evaluateString(scope,
-                        "({ argv: ['" + fileName + "'], env: {}, exit: function(c){}, " +
-                        "stdout: { write: function(s){ print(s); } }, " +
-                        "stderr: { write: function(s){ print('[ERR] '+s); } } })",
-                        "process", 1, null));
-
                 cx.evaluateString(scope, code, fileName, 1, null);
-                listener.onDone(0);
+                cb.onDone(0);
 
             } catch (org.mozilla.javascript.RhinoException e) {
-                listener.onError("[JS ERROR] " + e.getMessage() +
-                    " (line " + e.lineNumber() + ")\n");
-                listener.onDone(1);
+                cb.onError("[JS ERROR] " + e.getMessage() +
+                    " line:" + e.lineNumber() + "\n");
+                cb.onDone(1);
             } catch (Exception e) {
-                listener.onError("[ERROR] " + e.getMessage() + "\n");
-                listener.onDone(1);
+                cb.onError("[ERROR] " + e.getMessage() + "\n");
+                cb.onDone(1);
             } finally {
-                Context.exit();
+                org.mozilla.javascript.Context.exit();
             }
         }).start();
     }
 
-    // ─── Run JavaScript File ───
-    public void runJavaScriptFile(File file, OutputListener listener) {
+    // ─── JavaScript File ───
+    public void runJavaScriptFile(File file, OutputListener cb) {
         try {
-            BufferedReader br = new BufferedReader(new FileReader(file));
             StringBuilder code = new StringBuilder();
+            BufferedReader br = new BufferedReader(new FileReader(file));
             String line;
             while ((line = br.readLine()) != null) code.append(line).append("\n");
             br.close();
-            runJavaScript(code.toString(), file.getName(), listener);
+            runJavaScript(code.toString(), file.getName(), cb);
         } catch (Exception e) {
-            listener.onError("[ERROR] Cannot read file: " + e.getMessage() + "\n");
-            listener.onDone(1);
+            cb.onError("[ERROR] Cannot read: " + e.getMessage() + "\n");
+            cb.onDone(1);
         }
     }
 
-    // ─── Run Python (Jython Engine) ───
-    public void runPython(String code, String fileName, OutputListener listener) {
+    // ─── Python (Jython) via StringWriter ───
+    public void runPython(String code, String fileName, OutputListener cb) {
         new Thread(() -> {
-            PythonInterpreter interp = null;
             try {
+                // Setup Jython properties
                 Properties props = new Properties();
-                props.put("python.home", appCtx.getCacheDir().getAbsolutePath());
-                props.put("python.cachedir", appCtx.getCacheDir().getAbsolutePath() + "/py");
-                props.put("python.cachedir.skip", "false");
-                props.put("python.verbose", "error");
+                String cacheDir = ctx.getCacheDir().getAbsolutePath() + "/jython";
+                new File(cacheDir).mkdirs();
+                props.setProperty("python.home", cacheDir);
+                props.setProperty("python.cachedir", cacheDir);
+                props.setProperty("python.cachedir.skip", "false");
+                props.setProperty("python.verbose", "error");
+                props.setProperty("python.security.respectJavaAccessibility", "false");
 
                 PythonInterpreter.initialize(System.getProperties(), props, new String[]{""});
 
-                interp = new PythonInterpreter();
+                PythonInterpreter interp = new PythonInterpreter();
 
-                // Capture output
-                PipedOutputStream pout = new PipedOutputStream();
-                PipedInputStream pin = new PipedInputStream(pout);
-                interp.setOut(pout);
-                interp.setErr(pout);
+                // Capture output via StringWriter polling
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                interp.setOut(pw);
+                interp.setErr(pw);
 
-                final PipedInputStream finalPin = pin;
-                Thread reader = new Thread(() -> {
-                    try {
-                        BufferedReader br = new BufferedReader(
-                            new InputStreamReader(finalPin));
-                        char[] buf = new char[256];
-                        int len;
-                        while ((len = br.read(buf, 0, buf.length)) != -1) {
-                            final String out = new String(buf, 0, len);
-                            listener.onOutput(out);
-                        }
-                    } catch (Exception ignored) {}
-                });
-                reader.start();
-
+                // Run dengan polling output
                 interp.exec(code);
-                pout.flush();
-                pout.close();
-                reader.join(3000);
-                listener.onDone(0);
+                pw.flush();
 
-            } catch (org.python.core.PyException e) {
-                listener.onError("[Python ERROR] " + e.getMessage() + "\n");
-                listener.onDone(1);
+                String output = sw.toString();
+                if (!output.isEmpty()) cb.onOutput(output);
+                cb.onDone(0);
+                interp.close();
+
+            } catch (PyException e) {
+                cb.onError("[Python ERROR] " + e.getMessage() + "\n");
+                cb.onDone(1);
             } catch (Exception e) {
-                listener.onError("[ERROR] " + e.getMessage() + "\n");
-                listener.onDone(1);
-            } finally {
-                try { if (interp != null) interp.close(); } catch (Exception ignored) {}
+                cb.onError("[ERROR] " + e.getMessage() + "\n");
+                cb.onDone(1);
             }
         }).start();
     }
 
-    // ─── Run Python File ───
-    public void runPythonFile(File file, OutputListener listener) {
+    // ─── Python File ───
+    public void runPythonFile(File file, OutputListener cb) {
         try {
-            BufferedReader br = new BufferedReader(new FileReader(file));
             StringBuilder code = new StringBuilder();
+            BufferedReader br = new BufferedReader(new FileReader(file));
             String line;
             while ((line = br.readLine()) != null) code.append(line).append("\n");
             br.close();
-            runPython(code.toString(), file.getName(), listener);
+            runPython(code.toString(), file.getName(), cb);
         } catch (Exception e) {
-            listener.onError("[ERROR] Cannot read file: " + e.getMessage() + "\n");
-            listener.onDone(1);
+            cb.onError("[ERROR] Cannot read: " + e.getMessage() + "\n");
+            cb.onDone(1);
         }
     }
 
-    // ─── Run any file by extension ───
-    public void runFile(File file, OutputListener listener) {
+    // ─── Auto detect & run file ───
+    public void runFile(File file, OutputListener cb) {
         String name = file.getName();
         if (name.endsWith(".sh")) {
-            runShellFile(file, listener);
+            runShellFile(file, cb);
         } else if (name.endsWith(".js")) {
-            runJavaScriptFile(file, listener);
+            runJavaScriptFile(file, cb);
         } else if (name.endsWith(".py")) {
-            // Try external Python first, fallback to Jython
-            String extPython = DaemonManager.getPython();
-            if (extPython != null) {
-                runShell(extPython + " " + file.getAbsolutePath(), file.getParentFile(), listener);
+            String extPy = DaemonManager.getPython();
+            if (extPy != null) {
+                runShell(extPy + " " + file.getAbsolutePath(),
+                    file.getParentFile(), cb);
             } else {
-                listener.onOutput("[VPR] Using built-in Python (Jython)\n");
-                runPythonFile(file, listener);
+                cb.onOutput("[VPR] Using built-in Jython Python 2.7\n");
+                runPythonFile(file, cb);
             }
         } else {
-            runShell(file.getAbsolutePath(), file.getParentFile(), listener);
+            runShell(file.getAbsolutePath(), file.getParentFile(), cb);
         }
     }
 
-    // ─── Find shell ───
     private String findShell() {
-        String found = DaemonManager.findBinary("bash", "sh", "ash", "dash");
+        String found = DaemonManager.findBinary("bash","sh","ash","dash");
         return found != null ? found : "/system/bin/sh";
     }
 }

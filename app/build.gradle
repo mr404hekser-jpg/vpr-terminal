@@ -6,7 +6,7 @@ android {
     compileSdk 34
     defaultConfig {
         applicationId "com.vpr.server"
-        minSdk 21
+        minSdk 26
         targetSdk 34
         versionCode 3
         versionName "3.0"
@@ -22,10 +22,18 @@ android {
     }
     packaging {
         resources {
-            excludes += ['META-INF/DEPENDENCIES', 'META-INF/LICENSE',
-                         'META-INF/LICENSE.txt', 'META-INF/NOTICE',
-                         'META-INF/NOTICE.txt', 'META-INF/*.SF',
-                         'META-INF/*.DSA', 'META-INF/*.RSA']
+            excludes += [
+                'META-INF/DEPENDENCIES',
+                'META-INF/LICENSE',
+                'META-INF/LICENSE.txt',
+                'META-INF/NOTICE',
+                'META-INF/NOTICE.txt',
+                'META-INF/*.SF',
+                'META-INF/*.DSA',
+                'META-INF/*.RSA',
+                'META-INF/versions/**',
+                'mozilla/public-suffix-list.txt'
+            ]
         }
     }
 }
@@ -39,8 +47,6 @@ configurations.all {
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.4.2'
     implementation 'androidx.multidex:multidex:2.0.1'
-    // JS Engine - Rhino (pure Java, no NDK)
     implementation 'org.mozilla:rhino:1.7.14'
-    // Python Engine - Jython (pure Java, no NDK)
     implementation 'org.python:jython-standalone:2.7.3'
 }
